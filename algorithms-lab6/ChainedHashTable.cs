@@ -5,11 +5,23 @@ namespace algorithms_lab6;
 
 public class ChainedHashTable<K, V> {
     private readonly IHashStrategy<K> _hash;
-    private List<HashTableEntry<K, V>>[] _buckets;
+    private Node?[] _buckets;
 
     public int Count { get; private set; }
     public int Capacity => _buckets.Length;
     public double MaxLoadFactor { get; }
+
+    private sealed class Node {
+        public K Key { get; }
+        public V Value { get; set; }
+        public Node? Next { get; set; }
+
+        public Node(K key, V value, Node? next) {
+            Key = key;
+            Value = value;
+            Next = next;
+        }
+    }
 
     public ChainedHashTable(IHashStrategy<K> hashStrategy, int capacity = 16, double maxLoadFactor = 0.75) {
         if (hashStrategy is null) {
@@ -25,7 +37,7 @@ public class ChainedHashTable<K, V> {
         }
 
         _hash = hashStrategy;
-        _buckets = new List<HashTableEntry<K, V>>[capacity];
+        _buckets = new Node?[capacity];
         MaxLoadFactor = maxLoadFactor;
     }
 
@@ -35,30 +47,32 @@ public class ChainedHashTable<K, V> {
         }
 
         var idx = _hash.Index(key, Capacity);
-        var bucket = _buckets[idx] ??= [];
+        var current = _buckets[idx];
 
-        for (var i = 0; i < bucket.Count; i++) {
-            if (EqualityComparer<K>.Default.Equals(bucket[i].Key, key)) {
-                bucket[i].Value = value;
+        while (current != null) {
+            if (EqualityComparer<K>.Default.Equals(current.Key, key)) {
+                current.Value = value;
                 return;
             }
+
+            current = current.Next;
         }
 
-        bucket.Add(new HashTableEntry<K, V>(key, value));
+        _buckets[idx] = new Node(key, value, _buckets[idx]);
         Count++;
     }
 
     public bool TryGetValue(K key, out V value) {
         var idx = _hash.Index(key, Capacity);
-        var bucket = _buckets[idx];
+        var current = _buckets[idx];
 
-        if (bucket != null) {
-            for (var i = 0; i < bucket.Count; i++) {
-                if (EqualityComparer<K>.Default.Equals(bucket[i].Key, key)) {
-                    value = bucket[i].Value;
-                    return true;
-                }
+        while (current != null) {
+            if (EqualityComparer<K>.Default.Equals(current.Key, key)) {
+                value = current.Value;
+                return true;
             }
+
+            current = current.Next;
         }
 
         value = default!;
@@ -67,17 +81,24 @@ public class ChainedHashTable<K, V> {
 
     public bool Remove(K key) {
         var idx = _hash.Index(key, Capacity);
-        var bucket = _buckets[idx];
-        if (bucket == null) {
-            return false;
-        }
 
-        for (var i = 0; i < bucket.Count; i++) {
-            if (EqualityComparer<K>.Default.Equals(bucket[i].Key, key)) {
-                bucket.RemoveAt(i);
+        Node? previous = null;
+        var current = _buckets[idx];
+
+        while (current != null) {
+            if (EqualityComparer<K>.Default.Equals(current.Key, key)) {
+                if (previous == null) {
+                    _buckets[idx] = current.Next;
+                } else {
+                    previous.Next = current.Next;
+                }
+
                 Count--;
                 return true;
             }
+
+            previous = current;
+            current = current.Next;
         }
 
         return false;
@@ -88,19 +109,26 @@ public class ChainedHashTable<K, V> {
     }
 
     private void Resize(int newCapacity) {
+        if (newCapacity <= 0) {
+            throw new ArgumentOutOfRangeException(nameof(newCapacity));
+        }
+
         var old = _buckets;
-        _buckets = new List<HashTableEntry<K, V>>[newCapacity];
+        _buckets = new Node?[newCapacity];
         Count = 0;
 
         for (var i = 0; i < old.Length; i++) {
-            var bucket = old[i];
-            if (bucket == null) {
-                continue;
-            }
-
-            for (var j = 0; j < bucket.Count; j++) {
-                AddOrUpdate(bucket[j].Key, bucket[j].Value);
+            var current = old[i];
+            while (current != null) {
+                InsertRehashed(current.Key, current.Value);
+                current = current.Next;
             }
         }
+    }
+
+    private void InsertRehashed(K key, V value) {
+        var idx = _hash.Index(key, Capacity);
+        _buckets[idx] = new Node(key, value, _buckets[idx]);
+        Count++;
     }
 }
