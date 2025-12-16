@@ -9,6 +9,7 @@ public class ChainedHashTable<K, V> {
 
     public int Count { get; private set; }
     public int Capacity => _buckets.Length;
+    public double LoadFactor => (double)Count / Capacity;
     public double MaxLoadFactor { get; }
 
     private sealed class Node {
@@ -79,6 +80,71 @@ public class ChainedHashTable<K, V> {
         return false;
     }
 
+    public bool Search(K key, out V value, out int comparisons) {
+        comparisons = 0;
+
+        var idx = _hash.Index(key, Capacity);
+        var current = _buckets[idx];
+
+        while (current != null) {
+            comparisons++;
+
+            if (EqualityComparer<K>.Default.Equals(current.Key, key)) {
+                value = current.Value;
+                return true;
+            }
+
+            current = current.Next;
+        }
+
+        value = default!;
+        return false;
+    }
+
+    public void GetChainLengthStats(bool ignoreEmpty, out int min, out int max) {
+        if (Count == 0) {
+            min = 0;
+            max = 0;
+            return;
+        }
+
+        var minAll = int.MaxValue;
+        int? minNonEmpty = null;
+        max = 0;
+
+        for (var i = 0; i < _buckets.Length; i++) {
+            var length = 0;
+            var current = _buckets[i];
+
+            while (current != null) {
+                length++;
+                current = current.Next;
+            }
+
+            if (length > max) {
+                max = length;
+            }
+
+            if (!ignoreEmpty) {
+                if (length < minAll) {
+                    minAll = length;
+                }
+
+                continue;
+            }
+
+            if (length == 0) {
+                continue;
+            }
+
+            if (minNonEmpty == null || length < minNonEmpty.Value) {
+                minNonEmpty = length;
+            }
+        }
+
+        min = ignoreEmpty ? (minNonEmpty ?? 0) : (minAll == int.MaxValue ? 0 : minAll);
+    }
+
     public bool Remove(K key) {
         var idx = _hash.Index(key, Capacity);
 
@@ -89,7 +155,9 @@ public class ChainedHashTable<K, V> {
             if (EqualityComparer<K>.Default.Equals(current.Key, key)) {
                 if (previous == null) {
                     _buckets[idx] = current.Next;
-                } else {
+                }
+
+                if (previous != null) {
                     previous.Next = current.Next;
                 }
 

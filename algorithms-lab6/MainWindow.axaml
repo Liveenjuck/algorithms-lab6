@@ -2,8 +2,19 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        mc:Ignorable="d" d:DesignWidth="1100" d:DesignHeight="700"
         x:Class="algorithms_lab6.MainWindow"
         Title="algorithms_lab6">
-    Welcome to Avalonia!
+    <Grid RowDefinitions="Auto,Auto,*" ColumnDefinitions="*,Auto" Margin="12">
+        <ComboBox x:Name="ChartComboBox"
+                  Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" />
+
+        <TextBlock x:Name="StatusTextBlock"
+                   Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                   Margin="0,8,0,8"
+                   Text="" />
+
+        <WebView x:Name="ChartWebView"
+                 Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" />
+    </Grid>
 </Window>
