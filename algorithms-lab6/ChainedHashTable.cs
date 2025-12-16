@@ -5,12 +5,11 @@ namespace algorithms_lab6;
 
 public class ChainedHashTable<K, V> {
     private readonly IHashStrategy<K> _hash;
-    private Node?[] _buckets;
+    private readonly Node?[] _buckets;
 
     public int Count { get; private set; }
     public int Capacity => _buckets.Length;
     public double LoadFactor => (double)Count / Capacity;
-    public double MaxLoadFactor { get; }
 
     private sealed class Node {
         public K Key { get; }
@@ -24,7 +23,7 @@ public class ChainedHashTable<K, V> {
         }
     }
 
-    public ChainedHashTable(IHashStrategy<K> hashStrategy, int capacity = 16, double maxLoadFactor = 0.75) {
+    public ChainedHashTable(IHashStrategy<K> hashStrategy, int capacity) {
         if (hashStrategy is null) {
             throw new ArgumentNullException(nameof(hashStrategy));
         }
@@ -33,20 +32,11 @@ public class ChainedHashTable<K, V> {
             throw new ArgumentOutOfRangeException(nameof(capacity));
         }
 
-        if (maxLoadFactor <= 0 || maxLoadFactor >= 1) {
-            throw new ArgumentOutOfRangeException(nameof(maxLoadFactor));
-        }
-
         _hash = hashStrategy;
         _buckets = new Node?[capacity];
-        MaxLoadFactor = maxLoadFactor;
     }
 
     public void AddOrUpdate(K key, V value) {
-        if (NeedsResize(Count + 1)) {
-            Resize(Capacity * 2);
-        }
-
         var idx = _hash.Index(key, Capacity);
         var current = _buckets[idx];
 
@@ -61,23 +51,6 @@ public class ChainedHashTable<K, V> {
 
         _buckets[idx] = new Node(key, value, _buckets[idx]);
         Count++;
-    }
-
-    public bool TryGetValue(K key, out V value) {
-        var idx = _hash.Index(key, Capacity);
-        var current = _buckets[idx];
-
-        while (current != null) {
-            if (EqualityComparer<K>.Default.Equals(current.Key, key)) {
-                value = current.Value;
-                return true;
-            }
-
-            current = current.Next;
-        }
-
-        value = default!;
-        return false;
     }
 
     public bool Search(K key, out V value, out int comparisons) {
@@ -172,31 +145,4 @@ public class ChainedHashTable<K, V> {
         return false;
     }
 
-    private bool NeedsResize(int newCount) {
-        return (double)newCount / Capacity > MaxLoadFactor;
-    }
-
-    private void Resize(int newCapacity) {
-        if (newCapacity <= 0) {
-            throw new ArgumentOutOfRangeException(nameof(newCapacity));
-        }
-
-        var old = _buckets;
-        _buckets = new Node?[newCapacity];
-        Count = 0;
-
-        for (var i = 0; i < old.Length; i++) {
-            var current = old[i];
-            while (current != null) {
-                InsertRehashed(current.Key, current.Value);
-                current = current.Next;
-            }
-        }
-    }
-
-    private void InsertRehashed(K key, V value) {
-        var idx = _hash.Index(key, Capacity);
-        _buckets[idx] = new Node(key, value, _buckets[idx]);
-        Count++;
-    }
 }

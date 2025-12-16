@@ -7,9 +7,8 @@ namespace algorithms_lab6.Charts;
 public static class HashTableBenchmarks {
     public sealed record Config(
         int ElementCount = 100_000,
-        int InitialCapacity = 16,
-        double MaxLoadFactor = 0.75,
-        int Trials = 200,
+        int Capacity = 1000,
+        int Trials = 20,
         int Seed = 42
     );
 
@@ -72,17 +71,15 @@ public static class HashTableBenchmarks {
             throw new ArgumentOutOfRangeException(nameof(c.ElementCount), "ElementCount must be positive.");
         }
 
-        if (c.InitialCapacity <= 0) {
-            throw new ArgumentOutOfRangeException(nameof(c.InitialCapacity), "InitialCapacity must be positive.");
+        if (c.Capacity <= 0) {
+            throw new ArgumentOutOfRangeException(nameof(c.Capacity), "Capacity must be positive.");
         }
+
 
         if (c.Trials <= 0) {
             throw new ArgumentOutOfRangeException(nameof(c.Trials), "Trials must be positive.");
         }
 
-        if (c.MaxLoadFactor <= 0 || c.MaxLoadFactor >= 1) {
-            throw new ArgumentOutOfRangeException(nameof(c.MaxLoadFactor), "MaxLoadFactor must be in (0, 1).");
-        }
     }
 
     private static ChartData Gen(Config c) {
@@ -118,11 +115,11 @@ public static class HashTableBenchmarks {
         for (var t = 1; t <= c.Trials; t++) {
             var k = Keys(c.ElementCount, c.Seed + t);
 
-            var a = InsOnly(new DivisionHashStrategy(), k, c.InitialCapacity, c.MaxLoadFactor);
+            var a = InsOnly(new DivisionHashStrategy(), k, c.Capacity);
             d.Add(new DataPoint(t, a));
             sum += a;
 
-            var b = InsOnly(new MultiplicationHashStrategy(), k, c.InitialCapacity, c.MaxLoadFactor);
+            var b = InsOnly(new MultiplicationHashStrategy(), k, c.Capacity);
             m.Add(new DataPoint(t, b));
             sum += b;
         }
@@ -149,11 +146,11 @@ public static class HashTableBenchmarks {
         for (var t = 1; t <= c.Trials; t++) {
             var k = Keys(c.ElementCount, c.Seed + t);
 
-            var a = LfOnce(new DivisionHashStrategy(), k, c.InitialCapacity, c.MaxLoadFactor);
+            var a = LfOnce(new DivisionHashStrategy(), k, c.Capacity);
             d.Add(new DataPoint(t, a.Lf));
             sum += a.Ms;
 
-            var b = LfOnce(new MultiplicationHashStrategy(), k, c.InitialCapacity, c.MaxLoadFactor);
+            var b = LfOnce(new MultiplicationHashStrategy(), k, c.Capacity);
             m.Add(new DataPoint(t, b.Lf));
             sum += b.Ms;
         }
@@ -180,11 +177,11 @@ public static class HashTableBenchmarks {
         for (var t = 1; t <= c.Trials; t++) {
             var k = Keys(c.ElementCount, c.Seed + t);
 
-            var d = LfOnce(new DivisionHashStrategy(), k, c.InitialCapacity, c.MaxLoadFactor);
+            var d = LfOnce(new DivisionHashStrategy(), k, c.Capacity);
             a += d.Lf;
             sum += d.Ms;
 
-            var m = LfOnce(new MultiplicationHashStrategy(), k, c.InitialCapacity, c.MaxLoadFactor);
+            var m = LfOnce(new MultiplicationHashStrategy(), k, c.Capacity);
             b += m.Lf;
             sum += m.Ms;
         }
@@ -214,11 +211,11 @@ public static class HashTableBenchmarks {
         for (var t = 1; t <= c.Trials; t++) {
             var k = Keys(c.ElementCount, c.Seed + t);
 
-            var a = Chain(new DivisionHashStrategy(), k, c.InitialCapacity, c.MaxLoadFactor);
+            var a = Chain(new DivisionHashStrategy(), k, c.Capacity);
             d.Add(new DataPoint(t, a.Max));
             sum += a.Ms;
 
-            var b = Chain(new MultiplicationHashStrategy(), k, c.InitialCapacity, c.MaxLoadFactor);
+            var b = Chain(new MultiplicationHashStrategy(), k, c.Capacity);
             m.Add(new DataPoint(t, b.Max));
             sum += b.Ms;
         }
@@ -245,11 +242,11 @@ public static class HashTableBenchmarks {
         for (var t = 1; t <= c.Trials; t++) {
             var k = Keys(c.ElementCount, c.Seed + t);
 
-            var a = Chain(new DivisionHashStrategy(), k, c.InitialCapacity, c.MaxLoadFactor);
+            var a = Chain(new DivisionHashStrategy(), k, c.Capacity);
             d.Add(new DataPoint(t, a.Min0));
             sum += a.Ms;
 
-            var b = Chain(new MultiplicationHashStrategy(), k, c.InitialCapacity, c.MaxLoadFactor);
+            var b = Chain(new MultiplicationHashStrategy(), k, c.Capacity);
             m.Add(new DataPoint(t, b.Min0));
             sum += b.Ms;
         }
@@ -276,11 +273,11 @@ public static class HashTableBenchmarks {
         for (var t = 1; t <= c.Trials; t++) {
             var k = Keys(c.ElementCount, c.Seed + t);
 
-            var a = Chain(new DivisionHashStrategy(), k, c.InitialCapacity, c.MaxLoadFactor);
+            var a = Chain(new DivisionHashStrategy(), k, c.Capacity);
             d.Add(new DataPoint(t, a.Min1));
             sum += a.Ms;
 
-            var b = Chain(new MultiplicationHashStrategy(), k, c.InitialCapacity, c.MaxLoadFactor);
+            var b = Chain(new MultiplicationHashStrategy(), k, c.Capacity);
             m.Add(new DataPoint(t, b.Min1));
             sum += b.Ms;
         }
@@ -304,8 +301,8 @@ public static class HashTableBenchmarks {
         }
 
         var k = Keys(w, c.Seed);
-        _ = LfOnce(new DivisionHashStrategy(), k, c.InitialCapacity, c.MaxLoadFactor);
-        _ = LfOnce(new MultiplicationHashStrategy(), k, c.InitialCapacity, c.MaxLoadFactor);
+        _ = LfOnce(new DivisionHashStrategy(), k, c.Capacity);
+        _ = LfOnce(new MultiplicationHashStrategy(), k, c.Capacity);
     }
 
     private static int[] Keys(int n, int seed) {
@@ -317,14 +314,16 @@ public static class HashTableBenchmarks {
         var r = new Random(seed);
         for (var i = n - 1; i > 0; i--) {
             var j = r.Next(i + 1);
-            (a[i], a[j]) = (a[j], a[i]);
+            var tmp = a[i];
+            a[i] = a[j];
+            a[j] = tmp;
         }
 
         return a;
     }
 
-    private static double InsOnly(IHashStrategy<int> s, int[] k, int cap, double lf) {
-        var t = new ChainedHashTable<int, int>(s, cap, lf);
+    private static double InsOnly(IHashStrategy<int> s, int[] k, int cap) {
+        var t = new ChainedHashTable<int, int>(s, cap);
 
         var sw = Stopwatch.StartNew();
         for (var i = 0; i < k.Length; i++) {
@@ -335,8 +334,8 @@ public static class HashTableBenchmarks {
         return sw.Elapsed.TotalMilliseconds;
     }
 
-    private static LfStat LfOnce(IHashStrategy<int> s, int[] k, int cap, double lf) {
-        var t = new ChainedHashTable<int, int>(s, cap, lf);
+    private static LfStat LfOnce(IHashStrategy<int> s, int[] k, int cap) {
+        var t = new ChainedHashTable<int, int>(s, cap);
 
         var sw = Stopwatch.StartNew();
         for (var i = 0; i < k.Length; i++) {
@@ -349,8 +348,8 @@ public static class HashTableBenchmarks {
         return new LfStat(sw.Elapsed.TotalMilliseconds, a);
     }
 
-    private static ChainStat Chain(IHashStrategy<int> s, int[] k, int cap, double lf) {
-        var t = new ChainedHashTable<int, int>(s, cap, lf);
+    private static ChainStat Chain(IHashStrategy<int> s, int[] k, int cap) {
+        var t = new ChainedHashTable<int, int>(s, cap);
 
         var sw = Stopwatch.StartNew();
         for (var i = 0; i < k.Length; i++) {
